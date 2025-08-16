@@ -103,7 +103,7 @@ def dense_mod(score, b, h, q_idx, kv_idx):
     part_4 = fint[q_idx * 6 + 4].bitwise_and(fint[kv_idx * 6 + 4])
     part_5 = fint[q_idx * 6 + 5].bitwise_and(fint[kv_idx * 6 + 5])
     sum = part_0 + part_1 + part_2 + part_3 + part_4 + part_5
-    return torch.where(sum > 0, score, -float("inf"))
+    return torch.where(sum != 0, score, -float("inf"))
 
 
 # do dummy matmul in a loop to warmup
@@ -159,12 +159,11 @@ print("flex:", stop - start)
 diff = (ref - out).abs()
 diffmean = diff.mean()
 diffmax = diff.max()
-idx = (ref - out).abs().argmax()
+idx = diff.abs().argmax()
 
 ic(ref.shape)
 ic(out.shape)
 ic(idx)
-ic(ref[0, 0, 0, -10:])
-ic(out[0, 0, 0, -10:])
+ic(diff.flatten()[idx - 10 : idx + 10])
 ic(diffmean)
 ic(diffmax)
