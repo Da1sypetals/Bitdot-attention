@@ -5,6 +5,7 @@ torch>=2.7
 ```
 ## Files
 ```
-fastflex.py: correct implementation
+test.py: prompt and design, correct implementation
+fastflex.py: faster implementation, but DOES NOT SEEM CORRECT.
 ```
 Attention flag compression optimize is TBD.

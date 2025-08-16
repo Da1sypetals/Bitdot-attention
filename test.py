@@ -75,6 +75,10 @@ f2 = torch.zeros(n, dtype=torch.int32, device=device)
 f3 = torch.zeros(n, dtype=torch.int32, device=device)
 f4 = torch.zeros(n, dtype=torch.int32, device=device)
 f5 = torch.zeros(n, dtype=torch.int32, device=device)
+# TODO: fill in fi with content in f.
+# first 2 dims are squeezed. this is NOT A TYPO. the first 2 dims are 1, 1.
+# just treat int32 as raw bits. Only use the low 30 bits to avoid overflow and sign bit.
+
 
 # Pack binary values into int32 tensors (treating as signed)
 f_binary = (f > 0).squeeze(0).squeeze(0).to(torch.int32)  # Shape: (n, d_f)
@@ -219,32 +223,14 @@ out = flex_attention(
 )
 
 diff = (ref - out).abs()
-diffval = diff.mean()
-idx = (ref - out).abs().argmax()
+diffmean = diff.mean()
+diffmax = diff.max()
+idx = diff.argmax()
 
 ic(ref.shape)
 ic(out.shape)
 ic(idx)
-print(f"diff = {diffval.item(): .9f}")
-ic(ref[0, 0, 0, -10:])
-ic(out[0, 0, 0, -10:])
-
-# ic(ref[0, 1, 1, :10])
-# ic(out[0, 1, 1, :10])
-
-ic(diff[0, 0, 0, :10])
+ic(diffmean)
+ic(diffmax)
 
 ic(diff.flatten()[idx - 10 : idx + 10])
-
-idx = (ref[0, 0] - out[0, 0]).abs().sum(-1).argmax()
-ic(idx)
-
-diff = (ref[0, 0, idx] - out[0, 0, idx]).abs()
-ic(diff.mean().item())
-ic(diff[:10])
-ic(f0[idx])
-ic(f1[idx])
-ic(f2[idx])
-ic(f3[idx])
-ic(f4[idx])
-ic(f[0, 0, idx, :d_f])
