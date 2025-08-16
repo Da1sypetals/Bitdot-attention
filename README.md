@@ -3,7 +3,8 @@
 ```
 torch>=2.7
 ```
-## Build
-```sh
-python setup.py build_ext --inplace
+## Files
 ```
+fastflex.py: correct implementation
+```
+Attention flag compression optimize is TBD.
