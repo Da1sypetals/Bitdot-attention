@@ -31,8 +31,7 @@ def scaled_dot_product_attention_with_flags(
     # We compute the dot product of all pairs of flag vectors.
     flag_dot_products = torch.matmul(flag, flag.transpose(-2, -1))
 
-    # Create a boolean mask: `True` where the dot product is zero.
-    # These are the positions where attention scores should be zeroed out.
+    # Create a boolean mask: `True` where the dot product is non-zero.
     flag_mask = flag_dot_products > 0.0
 
     # ic(flag_mask.shape)
