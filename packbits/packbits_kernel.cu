@@ -3,25 +3,22 @@
 #include <stdio.h>
 
 __global__ void pack_bits_kernel(
-    const bool* __restrict__ f_binary,  // (n, d_f)
-    int32_t* __restrict__ out,             // (n * n_chunks)
-    int n, int d_f, int max_chunk_bits, int n_chunks
+    const bool* __restrict__ fb,   // (n, d)
+    int32_t* __restrict__ o,       // (n * nc)
+    int n, int d, int cb, int nc
 ) {
-    int flat_chunk_idx = blockIdx.x * blockDim.x + threadIdx.x;  // 0 .. n*n_chunks-1
-    if (flat_chunk_idx >= n * n_chunks) return;
-
-    int row      = flat_chunk_idx / n_chunks;
-    int chunk_id = flat_chunk_idx % n_chunks;
-
-    int start = chunk_id * max_chunk_bits;
-    int end   = min(start + max_chunk_bits, d_f);
-
-    int32_t packed_val = 0;
-    for (int bit = start; bit < end; ++bit) {
-        int32_t bit_val = (int32_t)(f_binary[row * d_f + bit]);
-        packed_val |= (bit_val << (bit - start));
+    int a = blockIdx.x * blockDim.x + threadIdx.x;   // 0 .. n*nc-1
+    if (a >= n * nc) return;
+    int b = a / nc;
+    int c = a % nc;
+    int e = c * cb;
+    int f = min(e + cb, d);
+    int32_t g = 0;
+    for (int h = e; h < f; ++h) {
+        int32_t i = (int32_t)(fb[b * d + h]);
+        g |= (i << (h - e));
     }
-    out[flat_chunk_idx] = packed_val;
+    o[a] = g;
 }
 
 void pack_bits_cuda_launcher(

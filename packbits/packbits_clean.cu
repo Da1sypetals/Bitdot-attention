@@ -7,18 +7,21 @@ __global__ void pack_bits_kernel(
     int32_t* __restrict__ out,             // (n * n_chunks)
     int n, int d_f, int max_chunk_bits, int n_chunks
 ) {
-    int c = blockIdx.x * blockDim.x + threadIdx.x;
-    if (c >= n * n_chunks) return;
-    int d = c / n_chunks;
-    int e = c % n_chunks;
-    int f = e * max_chunk_bits;
-    int g = min(f + max_chunk_bits, d_f);
-    int32_t h = 0;
-    for (int i = f; i < g; ++i) {
-        int32_t j = (int32_t)(f_binary[d * d_f + i]);
-        h |= (j << (i - f));
+    int flat_chunk_idx = blockIdx.x * blockDim.x + threadIdx.x;  // 0 .. n*n_chunks-1
+    if (flat_chunk_idx >= n * n_chunks) return;
+
+    int row      = flat_chunk_idx / n_chunks;
+    int chunk_id = flat_chunk_idx % n_chunks;
+
+    int start = chunk_id * max_chunk_bits;
+    int end   = min(start + max_chunk_bits, d_f);
+
+    int32_t packed_val = 0;
+    for (int bit = start; bit < end; ++bit) {
+        int32_t bit_val = (int32_t)(f_binary[row * d_f + bit]);
+        packed_val |= (bit_val << (bit - start));
     }
-    out[c] = h;
+    out[flat_chunk_idx] = packed_val;
 }
 
 void pack_bits_cuda_launcher(
@@ -38,3 +41,4 @@ void pack_bits_cuda_launcher(
         f_binary, out, n, d_f, max_chunk_bits, n_chunks
     );
 }
+
