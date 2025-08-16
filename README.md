@@ -10,3 +10,9 @@ fastflex.py: faster implementation. Correct when max_chunk_bits < 30. We use 28 
 diff_fastflex.py: modify max_chunk_bits and see diff results
 ```
 Attention flag compression optimize is TBD.
+
+
+## Build
+```sh
+python setup.py build_ext --inplace
+```
