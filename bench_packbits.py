@@ -18,7 +18,7 @@ def gen_input(b, h, n, d, d_f, max_chunk_bits):
     f = f.reshape(1, 1, n, d_f)
 
     # Convert to binary int32
-    f_binary = (f > 0).squeeze(0).squeeze(0).to(torch.int32)  # (n, d_f)
+    f_binary = (f > 0).squeeze(0).squeeze(0).to(torch.bool)  # (n, d_f)
 
     weights = 2 ** torch.arange(max_chunk_bits, device=device, dtype=torch.int32)
 
@@ -26,7 +26,7 @@ def gen_input(b, h, n, d, d_f, max_chunk_bits):
     # Compute all chunks in one go
     torch.cuda.synchronize()
     start_time = time.time()
-    for _ in range(10000):
+    for _ in range(NUM_REP):
         chunks = []
         for start in range(0, d_f, max_chunk_bits):
             end = min(start + max_chunk_bits, d_f)
@@ -42,7 +42,7 @@ def gen_input(b, h, n, d, d_f, max_chunk_bits):
 
     torch.cuda.synchronize()
     start_time = time.time()
-    for _ in range(10000):
+    for _ in range(NUM_REP):
         fint_kernel = packbits.pack_bits(f_binary, max_chunk_bits)
     torch.cuda.synchronize()
     elapsed = time.time() - start_time

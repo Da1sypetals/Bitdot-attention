@@ -3,31 +3,26 @@
 #include <stdio.h>
 
 __global__ void pack_bits_kernel(
-    const int32_t* __restrict__ f_binary,  // (n, d_f)
+    const bool* __restrict__ f_binary,  // (n, d_f)
     int32_t* __restrict__ out,             // (n * n_chunks)
     int n, int d_f, int max_chunk_bits, int n_chunks
 ) {
-    int flat_chunk_idx = blockIdx.x * blockDim.x + threadIdx.x;  // 0 .. n*n_chunks-1
-    if (flat_chunk_idx >= n * n_chunks) return;
-
-    int row      = flat_chunk_idx / n_chunks;
-    int chunk_id = flat_chunk_idx % n_chunks;
-
-    int start = chunk_id * max_chunk_bits;
-    int end   = min(start + max_chunk_bits, d_f);
-
-    int32_t packed_val = 0;
-    for (int bit = start; bit < end; ++bit) {
-        int32_t bit_val = f_binary[row * d_f + bit];
-        if (bit_val != 0) {
-            packed_val |= (1 << (bit - start));
-        }
+    int c = blockIdx.x * blockDim.x + threadIdx.x;
+    if (c >= n * n_chunks) return;
+    int d = c / n_chunks;
+    int e = c % n_chunks;
+    int f = e * max_chunk_bits;
+    int g = min(f + max_chunk_bits, d_f);
+    int32_t h = 0;
+    for (int i = f; i < g; ++i) {
+        int32_t j = (int32_t)(f_binary[d * d_f + i]);
+        h |= (j << (i - f));
     }
-    out[flat_chunk_idx] = packed_val;
+    out[c] = h;
 }
 
 void pack_bits_cuda_launcher(
-    const int32_t* f_binary,  // device ptr, shape (n, d_f)
+    const bool* f_binary,  // device ptr, shape (n, d_f)
     int32_t* out,             // device ptr, shape (n * n_chunks)
     int n, int d_f, int max_chunk_bits,
     cudaStream_t stream = 0
