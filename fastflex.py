@@ -88,7 +88,7 @@ def gen_input(b, h, n, d, d_f):
 
 b = 1
 h = 8
-n = 5000
+n = 5013
 d = 128
 d_f = 151
 
@@ -112,7 +112,7 @@ for _ in range(100):
     _ = q.matmul(k.transpose(-2, -1))
 torch.cuda.synchronize()
 
-N_REP = 500
+N_REP = 10
 torch.cuda.synchronize()
 start = time.time()
 for _ in trange(N_REP):
