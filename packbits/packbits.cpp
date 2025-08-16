@@ -12,6 +12,8 @@ void pack_bits_cuda_launcher(
 );
 
 torch::Tensor pack_bits_cuda(torch::Tensor f_binary, int max_chunk_bits) {
+    // You must make sure f_binary is either 0 or 1
+    // Or you will get wrong results
     TORCH_CHECK(f_binary.is_cuda(), "f_binary must be a CUDA tensor");
     TORCH_CHECK(f_binary.dtype() == torch::kInt32, "f_binary must be int32");
 
