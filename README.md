@@ -5,7 +5,8 @@ torch>=2.7
 ```
 ## Files
 ```
-test.py: prompt and design, correct implementation
-fastflex.py: faster implementation, but DOES NOT SEEM CORRECT.
+test.py: prompt, design, correct and readable implementation
+fastflex.py: faster implementation. Correct when max_chunk_bits < 30. We use 28 here.
+diff.py: modify max_chunk_bits and see diff results
 ```
 Attention flag compression optimize is TBD.

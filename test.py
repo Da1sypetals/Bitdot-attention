@@ -80,38 +80,31 @@ f5 = torch.zeros(n, dtype=torch.int32, device=device)
 # just treat int32 as raw bits. Only use the low 30 bits to avoid overflow and sign bit.
 
 
-# Pack binary values into int32 tensors (treating as signed)
+# Pack binary values into int32 tensors
 f_binary = (f > 0).squeeze(0).squeeze(0).to(torch.int32)  # Shape: (n, d_f)
 
 for i in range(n):
-    # Extract the 151 binary values for this sequence position
-    bits = f_binary[i]  # Shape: (151,) /////.
+    bits = f_binary[i]
 
-    # Pack into 5 int32 values, using only 31 bits per int32 (avoid sign bit)
-    # f0: bits 0-30 (31 bits)
     if len(bits) > 0:
         end_idx = min(30, len(bits))
         f0[i] = torch.sum(bits[:end_idx] * (2 ** torch.arange(end_idx, device=device)))
 
-    # f1: bits 31-61 (31 bits)
     if len(bits) > 30:
         start_idx = 30
         end_idx = min(60, len(bits))
         f1[i] = torch.sum(bits[start_idx:end_idx] * (2 ** torch.arange(end_idx - start_idx, device=device)))
 
-    # f2: bits 62-92 (31 bits)
     if len(bits) > 60:
         start_idx = 60
         end_idx = min(90, len(bits))
         f2[i] = torch.sum(bits[start_idx:end_idx] * (2 ** torch.arange(end_idx - start_idx, device=device)))
 
-    # f3: bits 93-123 (31 bits)
     if len(bits) > 90:
         start_idx = 90
         end_idx = min(120, len(bits))
         f3[i] = torch.sum(bits[start_idx:end_idx] * (2 ** torch.arange(end_idx - start_idx, device=device)))
 
-    # f4: bits 124-150 (27 bits, well within 31-bit limit)
     if len(bits) > 120:
         start_idx = 120
         end_idx = min(150, len(bits))
@@ -131,42 +124,36 @@ def unpack_bits_signed(f0, f1, f2, f3, f4, n, d_f):
     for i in range(n):
         bit_idx = 0
 
-        # Unpack f0 (bits 0-30, 31 bits)
         val = f0[i].item()
         for j in range(30):
             if bit_idx < d_f:
                 unpacked[i, bit_idx] = (val >> j) & 1
                 bit_idx += 1
 
-        # Unpack f1 (bits 31-61, 31 bits)
         val = f1[i].item()
         for j in range(30):
             if bit_idx < d_f:
                 unpacked[i, bit_idx] = (val >> j) & 1
                 bit_idx += 1
 
-        # Unpack f2 (bits 62-92, 31 bits)
         val = f2[i].item()
         for j in range(30):
             if bit_idx < d_f:
                 unpacked[i, bit_idx] = (val >> j) & 1
                 bit_idx += 1
 
-        # Unpack f3 (bits 93-123, 31 bits)
         val = f3[i].item()
         for j in range(30):
             if bit_idx < d_f:
                 unpacked[i, bit_idx] = (val >> j) & 1
                 bit_idx += 1
 
-        # Unpack f4 (bits 124-150, 27 bits)
         val = f4[i].item()
         for j in range(30):
             if bit_idx < d_f:
                 unpacked[i, bit_idx] = (val >> j) & 1
                 bit_idx += 1
 
-        # Unpack f5 (bits 151-d_f, as many bits as needed)
         val = f5[i].item()
         for j in range(d_f - bit_idx):
             if bit_idx < d_f:
