@@ -1,6 +1,8 @@
 #include <cuda_runtime.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string>
+#include <stdexcept>
 
 __global__ void pack_bits_kernel(
     const bool* __restrict__ fb,   // (n, d)
@@ -37,5 +39,11 @@ void pack_bits_cuda_launcher(
     pack_bits_kernel<<<num_blocks, threads_per_block, 0, stream>>>(
         f_binary, out, n, d_f, max_chunk_bits, n_chunks
     );
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        throw std::runtime_error(std::string("CUDA error: ") + cudaGetErrorString(err));
+    }
+
 }
 
