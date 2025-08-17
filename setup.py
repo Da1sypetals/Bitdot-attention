@@ -9,6 +9,7 @@ setup(
             sources=[
                 "packbits/packbits.cpp",  # wrapper
                 "packbits/packbits_kernel.cu",  # kernel
+                "packbits/packbits_float.cu",  # kernel
             ],
             extra_compile_args={
                 "cxx": ["-O3"],
