@@ -45,7 +45,7 @@ def gen_input(b, h, n, d, d_f, max_chunk_bits):
     ####################################################################
     f_binary = (f > 0).squeeze(0).squeeze(0).to(torch.bool)  # (n, d_f)
 
-    fint = packbits.pack_bits(f_binary, max_chunk_bits)
+    fint = packbits.pack_bits(f_binary, max_chunk_bits)  # (n * 6)
     ####################################################################
 
     return q, k, v, f, fint
@@ -124,10 +124,11 @@ for _ in trange(N_REP):
         max_chunk_bits,
     )
     ref = scaled_dot_product_attention_with_flags(q, k, v, f)
+    # fint: (n * 6)
     out = flex_attention(
-        q,
-        k,
-        v,
+        q,  # (1, h, n, d)
+        k,  # (1, h, n, d)
+        v,  # (1, h, n, d)
         score_mod=dense_mod,
         kernel_options=kernel_options,
     )

@@ -11,15 +11,11 @@ __global__ void pack_bits_kernel(
 ) {
     int a = blockIdx.x * blockDim.x + threadIdx.x;   // 0 .. n*nc-1
     if (a >= n * nc) return;
-    int b = a / nc;
-    int c = a % nc;
+    int b = a / nc, c = a % nc;
     int e = c * cb;
     int f = min(e + cb, d);
     int32_t g = 0;
-    for (int h = e; h < f; ++h) {
-        int32_t i = (int32_t)(fb[b * d + h]);
-        g |= (i << (h - e));
-    }
+    for (int h = e; h < f; ++h) g |= (((int32_t)(fb[b * d + h])) << (h - e));
     o[a] = g;
 }
 
