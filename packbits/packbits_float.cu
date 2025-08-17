@@ -5,19 +5,16 @@
 #include <stdexcept>
 
 __global__ void pack_bits_float_kernel(
-    const float* __restrict__ fb,   // (n, d)
-    int32_t* __restrict__ o,       // (n * nc)
+    const float* __restrict__ fb,
+    int32_t* __restrict__ o,
     int n, int d, int cb, int nc
 ) {
-    int a = blockIdx.x * blockDim.x + threadIdx.x;   // 0 .. n*nc-1
+    int a = blockIdx.x * blockDim.x + threadIdx.x;
     if (a >= n * nc) return;
-    int b = a / nc, c = a % nc;
-    int e = c * cb;
+    int b = a / nc, e = a % nc * cb;
     int f = min(e + cb, d);
     int32_t g = 0;
-    // for (int h = e; h < f; ++h) g |= ((static_cast<int32_t>(fb[b * d + h])) << (h - e));
     const uint32_t* u = reinterpret_cast<const uint32_t*>(fb);
-    // for (int h = e; h < f; ++h) g |= (static_cast<int32_t>(static_cast<bool>(u[b * d + h] & 0x7FFFFFFF)) << (h - e));
     for (int h = e; h < f; ++h) g |= (static_cast<bool>(u[b * d + h] & 0x7FFFFFFF) << (h - e));
     o[a] = g;
 }
