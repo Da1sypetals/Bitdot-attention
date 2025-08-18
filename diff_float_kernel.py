@@ -46,7 +46,9 @@ def gen_input(b, h, n, d, d_f, max_chunk_bits):
     f_binary = (f > 0).squeeze(0).squeeze(0).to(torch.bool)  # (n, d_f)
 
     # fint = packbits.pack_bits(f_binary, max_chunk_bits)  # (n * 6)
-    fint = packbits.pack_bits_float(f[0, 0], max_chunk_bits)  # (n * 6)
+    # fint = packbits.pack_bits_float(f[0, 0], max_chunk_bits).view(n, -1)  # (n * 6)
+    # fint = F.pad(fint, (0, 8 - fint.size(-1)), "constant", 0).flatten().contiguous()
+    fint = packbits.pack_bits_float(f[0, 0], max_chunk_bits, 8)  # (n * 6)
     ####################################################################
 
     return q, k, v, f, fint
@@ -71,13 +73,23 @@ q, k, v, f, fint = gen_input(
 
 
 def dense_mod(score, b, h, q_idx, kv_idx):
-    part_0 = fint[q_idx * 6 + 0].bitwise_and(fint[kv_idx * 6 + 0])
-    part_1 = fint[q_idx * 6 + 1].bitwise_and(fint[kv_idx * 6 + 1])
-    part_2 = fint[q_idx * 6 + 2].bitwise_and(fint[kv_idx * 6 + 2])
-    part_3 = fint[q_idx * 6 + 3].bitwise_and(fint[kv_idx * 6 + 3])
-    part_4 = fint[q_idx * 6 + 4].bitwise_and(fint[kv_idx * 6 + 4])
-    part_5 = fint[q_idx * 6 + 5].bitwise_and(fint[kv_idx * 6 + 5])
-    sum = part_0 + part_1 + part_2 + part_3 + part_4 + part_5
+    part_0 = fint[q_idx * 8 + 0].bitwise_and(fint[kv_idx * 8 + 0])
+    part_1 = fint[q_idx * 8 + 1].bitwise_and(fint[kv_idx * 8 + 1])
+    part_2 = fint[q_idx * 8 + 2].bitwise_and(fint[kv_idx * 8 + 2])
+    part_3 = fint[q_idx * 8 + 3].bitwise_and(fint[kv_idx * 8 + 3])
+    part_4 = fint[q_idx * 8 + 4].bitwise_and(fint[kv_idx * 8 + 4])
+    part_5 = fint[q_idx * 8 + 5].bitwise_and(fint[kv_idx * 8 + 5])
+    part_6 = fint[q_idx * 8 + 6].bitwise_and(fint[kv_idx * 8 + 6])
+    part_7 = fint[q_idx * 8 + 7].bitwise_and(fint[kv_idx * 8 + 7])
+    sum = (
+        part_0.bitwise_or(part_1)
+        .bitwise_or(part_2)
+        .bitwise_or(part_3)
+        .bitwise_or(part_4)
+        .bitwise_or(part_5)
+        .bitwise_or(part_6)
+        .bitwise_or(part_7)
+    )
     return torch.where(sum > 0, score, -float("inf"))
 
 
@@ -86,7 +98,91 @@ for _ in range(100):
     _ = q.matmul(k.transpose(-2, -1))
 torch.cuda.synchronize()
 
-N_REP = 20
+N_REP = 2
+diffmean_list = []
+diffmax_list = []
+
+# baseline reference
+ref = scaled_dot_product_attention_with_flags(q, k, v, f)
+
+kernel_options = {
+    "BLOCK_M": 16,
+    "BLOCK_N": 16,
+    "BLOCK_M1": 16,
+    "BLOCK_N1": 32,
+    "BLOCK_M2": 32,
+    "BLOCK_N2": 16,
+}
+
+# warmup flex (compile)
+for _ in trange(3):
+    out = flex_attention(
+        q,
+        k,
+        v,
+        score_mod=dense_mod,
+        kernel_options=kernel_options,
+    )
+
+torch.cuda.synchronize()
+
+# main loop
+for _ in trange(N_REP):
+    q, k, v, f, fint = gen_input(
+        b,
+        h,
+        n,
+        d,
+        d_f,
+        max_chunk_bits,
+    )
+    ref = scaled_dot_product_attention_with_flags(q, k, v, f)
+    # fint: (n * 6)
+    out = flex_attention(
+        q,  # (1, h, n, d)
+        k,  # (1, h, n, d)
+        v,  # (1, h, n, d)
+        score_mod=dense_mod,
+        kernel_options=kernel_options,
+    )
+
+    diff = (ref - out).abs()
+    diffmean = diff.mean().item()
+    diffmax = diff.max().item()
+    print(f"{diffmean = }, {diffmax = }")
+
+    diffmean_list.append(diffmean)
+    diffmax_list.append(diffmax)
+
+for i, (diffmean, diffmax) in enumerate(zip(diffmean_list, diffmax_list)):
+    # make width consistent
+    print(f"Exp {i:03d} | diffmean={diffmean:.3e} | diffmax={diffmax:.3e}")
+
+######################################################################
+b = 1
+h = 8
+n = 1001
+d = 128
+d_f = 157
+max_chunk_bits = 28
+print(f"Using {max_chunk_bits = }")
+
+q, k, v, f, fint = gen_input(
+    b,
+    h,
+    n,
+    d,
+    d_f,
+    max_chunk_bits,
+)
+
+
+# warmup
+for _ in range(100):
+    _ = q.matmul(k.transpose(-2, -1))
+torch.cuda.synchronize()
+
+N_REP = 3
 diffmean_list = []
 diffmax_list = []
 
