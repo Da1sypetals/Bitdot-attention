@@ -4,36 +4,41 @@
 #include <string>
 #include <stdexcept>
 
-__global__ void pack_bits_kernel(
-    const bool* __restrict__ fb,   // (n, d)
-    int32_t* __restrict__ o,       // (n * nc)
-    int n, int d, int cb, int nc
+constexpr int max_bits_per_chunk = 64;
+
+__global__ void pack_bits_float_kernel(
+    const bool* __restrict__ f_binary,
+    uint64_t* __restrict__ out,
+    int num_rows, int d_f, int num_chunk, int pack_dim
 ) {
-    int a = blockIdx.x * blockDim.x + threadIdx.x;   // 0 .. n*nc-1
-    if (a >= n * nc) return;
-    int b = a / nc, c = a % nc;
-    int e = c * cb;
-    int f = min(e + cb, d);
-    int32_t g = 0;
-    for (int h = e; h < f; ++h) g |= (((int32_t)(fb[b * d + h])) << (h - e));
-    o[a] = g;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid >= num_rows * num_chunk) return;
+    int row_idx = tid / num_chunk, chunk_idx = tid % num_chunk;
+    int start = chunk_idx * max_bits_per_chunk;
+    int end = min(start + max_bits_per_chunk, d_f);
+    uint64_t res = 0;
+    for (int bit = start; bit < end; ++bit) {
+        uint64_t bit_val = static_cast<uint64_t>(f_binary[row_idx * max_bits_per_chunk + bit]);
+        res |= (bit_val << (bit - start));
+    }
+    out[row_idx * num_chunk + chunk_idx] = res;
 }
 
 void pack_bits_cuda_launcher(
     const bool* f_binary,  // device ptr, shape (n, d_f)
-    int32_t* out,             // device ptr, shape (n * n_chunks)
-    int n, int d_f, int max_chunk_bits,
-    cudaStream_t stream = 0
+    uint64_t* out,             // device ptr, shape (n * n_chunks)
+    int n, int d_f,
+    int pack_dim, cudaStream_t stream
 ) {
-    const int n_chunks = (d_f + max_chunk_bits - 1) / max_chunk_bits;
+    const int n_chunks = (d_f + max_bits_per_chunk - 1) / max_bits_per_chunk;
     const int total_chunks = n * n_chunks;
 
-    const int threads_per_block = 256;
+    constexpr int threads_per_block = 256;
     const int total_threads = total_chunks;
     const int num_blocks = (total_threads + threads_per_block - 1) / threads_per_block;
 
-    pack_bits_kernel<<<num_blocks, threads_per_block, 0, stream>>>(
-        f_binary, out, n, d_f, max_chunk_bits, n_chunks
+    pack_bits_float_kernel<<<num_blocks, threads_per_block, 0, stream>>>(
+        f_binary, out, n, d_f, n_chunks, pack_dim
     );
 
     cudaError_t err = cudaGetLastError();
@@ -42,4 +47,3 @@ void pack_bits_cuda_launcher(
     }
 
 }
-

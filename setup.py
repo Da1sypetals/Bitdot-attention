@@ -9,8 +9,6 @@ setup(
             sources=[
                 "packbits/packbits.cpp",  # wrapper
                 "packbits/packbits_kernel.cu",  # kernel
-                "packbits/packbits_float.cu",  # kernel
-                "packbits/packbits_float_u64.cu",  # kernel
                 "packbits/and.cu",  # kernel
             ],
             extra_compile_args={
